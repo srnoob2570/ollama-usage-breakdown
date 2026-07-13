@@ -262,7 +262,9 @@
             if (time.title.startsWith("Exact reset time:")) {
                 time.removeAttribute("title");
             }
-            if (time.getAttribute("aria-label")?.includes(". Exact reset time:")) {
+            if (
+                time.getAttribute("aria-label")?.includes(". Exact reset time:")
+            ) {
                 time.removeAttribute("aria-label");
             }
         });
@@ -345,10 +347,7 @@
         const toggle = element("span", "oue-toggle");
         toggle.setAttribute("aria-hidden", "true");
         summaryEnd.append(count, toggle);
-        summary.append(
-            element("span", "", "Breakdown by model"),
-            summaryEnd,
-        );
+        summary.append(element("span", "", "Breakdown by model"), summaryEnd);
 
         const list = element("div", "oue-list");
         for (const item of segments) {
