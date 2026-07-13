@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ollama Usage Breakdown
 // @namespace    https://github.com/srnoob2570
-// @version      1.1.0
-// @description  Shows a clearer Ollama Cloud usage bar and a per-model breakdown.
+// @version      1.2.3
+// @description  Shows a clearer Ollama Cloud usage bar, per-model breakdown, and inline exact reset times.
 // @author       srnoob2570
 // @match        https://ollama.com/settings*
 // @homepageURL  https://github.com/srnoob2570/ollama-usage-breakdown
@@ -24,6 +24,13 @@
     const formatNumber = new Intl.NumberFormat(
         document.documentElement.lang || undefined,
     );
+    const resetTimeFormatter = new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
 
     let refreshQueued = false;
 
@@ -79,7 +86,31 @@
         opacity: .7;
       }
       [${PANEL}] details { margin-top: .6rem; }
-      [${PANEL}] summary { cursor: pointer; font-size: .8rem; font-weight: 600; }
+      [${PANEL}] summary {
+        cursor: pointer;
+        font-size: .8rem;
+        font-weight: 600;
+        list-style: none;
+      }
+      [${PANEL}] summary::-webkit-details-marker { display: none; }
+      [${PANEL}] .oue-summary-end {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+      }
+      [${PANEL}] .oue-toggle {
+        width: .5rem;
+        height: .5rem;
+        flex: 0 0 auto;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        opacity: .7;
+        transform: rotate(45deg) translate(-1px, -1px);
+        transition: transform 120ms ease;
+      }
+      [${PANEL}] details:not([open]) .oue-toggle {
+        transform: rotate(-45deg) translate(1px, 1px);
+      }
       [${PANEL}] .oue-list { display: grid; gap: .15rem; margin-top: .45rem; }
       [${PANEL}] .oue-row {
         display: grid;
@@ -207,9 +238,39 @@
             .join(" · ");
     }
 
+    function enhanceResetTimes() {
+        document.querySelectorAll(".local-time[data-time]").forEach((time) => {
+            const resetAt = new Date(time.dataset.time);
+            if (Number.isNaN(resetAt.getTime())) return;
+
+            const currentText = time.textContent.trim();
+            const previousDisplay =
+                time.dataset.ollamaUsageEnhancerResetDisplay;
+            const relativeTime =
+                currentText !== previousDisplay
+                    ? currentText
+                    : time.dataset.ollamaUsageEnhancerRelativeResetText ||
+                      currentText;
+            const display = `${relativeTime} (${resetTimeFormatter.format(resetAt)})`;
+
+            if (currentText !== display) time.textContent = display;
+            time.dataset.ollamaUsageEnhancerRelativeResetText = relativeTime;
+            time.dataset.ollamaUsageEnhancerResetDisplay = display;
+
+            // Remove the hover-only data added by version 1.2.1, without
+            // changing the tooltip that Ollama itself provides.
+            if (time.title.startsWith("Exact reset time:")) {
+                time.removeAttribute("title");
+            }
+            if (time.getAttribute("aria-label")?.includes(". Exact reset time:")) {
+                time.removeAttribute("aria-label");
+            }
+        });
+    }
+
     function render(track, segments) {
         let panel = panels.get(track);
-        const wasOpen = panel?.querySelector("details")?.open ?? true;
+        const wasOpen = panel?.querySelector("details")?.open ?? false;
 
         if (!panel) {
             panel = document.createElement("section");
@@ -217,7 +278,16 @@
             panels.set(track, panel);
         }
 
-        if (track.nextElementSibling !== panel) track.after(panel);
+        const meter = track.closest("[data-usage-meter]");
+        const resetTime = meter?.nextElementSibling?.matches(
+            ".local-time[data-time]",
+        )
+            ? meter.nextElementSibling
+            : null;
+        const insertionPoint = resetTime || track;
+        if (insertionPoint.nextElementSibling !== panel) {
+            insertionPoint.after(panel);
+        }
         panel.replaceChildren();
 
         const metadata = readMetadata(track);
@@ -266,13 +336,18 @@
         const details = element("details");
         details.open = wasOpen;
         const summary = element("summary");
+        const summaryEnd = element("span", "oue-summary-end");
+        const count = element(
+            "span",
+            "oue-count",
+            `${segments.length} ${segments.length === 1 ? "model" : "models"}`,
+        );
+        const toggle = element("span", "oue-toggle");
+        toggle.setAttribute("aria-hidden", "true");
+        summaryEnd.append(count, toggle);
         summary.append(
             element("span", "", "Breakdown by model"),
-            element(
-                "span",
-                "oue-count",
-                `${segments.length} ${segments.length === 1 ? "model" : "models"}`,
-            ),
+            summaryEnd,
         );
 
         const list = element("div", "oue-list");
@@ -315,6 +390,7 @@
         }
 
         addStyles();
+        enhanceResetTimes();
         const activePanels = new Set();
 
         document.querySelectorAll(TRACK).forEach((track) => {
@@ -343,7 +419,13 @@
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["aria-label", "style", "data-model", "data-requests"],
+        attributeFilter: [
+            "aria-label",
+            "style",
+            "data-model",
+            "data-requests",
+            "data-time",
+        ],
     });
 
     window.addEventListener("popstate", scheduleRefresh);
