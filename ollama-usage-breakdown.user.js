@@ -25,8 +25,7 @@
         document.documentElement.lang || undefined,
     );
     const resetTimeFormatter = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "long",
+        month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
@@ -251,7 +250,7 @@
                     ? currentText
                     : time.dataset.ollamaUsageEnhancerRelativeResetText ||
                       currentText;
-            const display = `${relativeTime} (${resetTimeFormatter.format(resetAt)})`;
+            const display = `${relativeTime} (${resetTimeFormatter.format(resetAt)} UTC)`;
 
             if (currentText !== display) time.textContent = display;
             time.dataset.ollamaUsageEnhancerRelativeResetText = relativeTime;
