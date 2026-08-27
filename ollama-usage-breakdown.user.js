@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Ollama Usage Breakdown
 // @namespace    https://github.com/srnoob2570
-// @version      1.3.2
+// @version      1.3.3
 // @description  Adds an Ollama-style per-model session breakdown and inline per-model usage percentages.
 // @author       srnoob2570
-// @match        https://ollama.com/settings*
+// @match        https://ollama.com/settings
 // @homepageURL  https://github.com/srnoob2570/ollama-usage-breakdown
 // @supportURL   https://github.com/srnoob2570/ollama-usage-breakdown/issues
 // @updateURL    https://raw.githubusercontent.com/srnoob2570/ollama-usage-breakdown/main/ollama-usage-breakdown.user.js
