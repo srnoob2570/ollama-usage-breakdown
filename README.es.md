@@ -1,17 +1,17 @@
 # Ollama Usage Breakdown
 
-Userscript de Tampermonkey que mejora los medidores de uso de [ollama.com/settings](https://ollama.com/settings) con una vista por modelo más clara de tu uso de Ollama Cloud.
+Userscript de Tampermonkey que hace los medidores de uso de [ollama.com/settings](https://ollama.com/settings) mucho más legibles, con un desglose por modelo de tu uso de Ollama Cloud.
 
-> 🇬🇧 English version available: [README.md](./README.md)
+> English version available: [README.md](./README.md)
 
-> ⚠️ **Aviso:** este userscript está **generado y actualizado con ayuda de IA**. No está afiliado a Ollama ni cuenta con su respaldo. Consulta [el aviso completo](#️-aviso-generado-por-ia) más abajo.
+> Este userscript está generado y actualizado con ayuda de IA. No está afiliado a Ollama ni cuenta con su respaldo. Consulta [el aviso completo](#aviso-generado-por-ia) más abajo.
 
 ## Qué hace
 
-- **Desglose de sesión** — añade una lista "Models used this session" debajo del medidor de sesión, con el mismo estilo que la lista nativa "Models used this week" de Ollama (punto de color, nombre del modelo, contador de peticiones) más una columna extra.
-- **Porcentaje por modelo** — Ollama solo reporta el "X% used" global; la participación de cada modelo existe únicamente en su HTML (los anchos de los segmentos de la barra). El script lee esos anchos, los reescala contra el uso global y muestra cuánto de tu límite total consumió cada modelo. Todos los modelos juntos suman el X% que reporta Ollama (p. ej. `84.2%` de una sesión al `10.7%` → `9.01%`).
-- **Porcentajes también en la semanal** — inyecta el mismo porcentaje reescalado en la lista nativa "Models used this week" de Ollama.
-- **Hora exacta de reset** — añade la fecha y hora absolutas junto al tiempo relativo (p. ej. "Resets in 2 hours. (August 27, 2026 at 2:00 AM)").
+- **Desglose de sesión.** Añade una lista "Models used this session" debajo del medidor de sesión, con el mismo estilo que la lista nativa "Models used this week" de Ollama (punto de color, nombre del modelo, contador de peticiones) más una columna extra.
+- **Porcentaje por modelo.** Ollama solo reporta el "X% used" global. La parte de cada modelo existe únicamente en el HTML de la página, codificada como anchos de los segmentos de la barra. El script lee esos anchos, los reescala contra el uso global y muestra cuánto de tu límite total consumió cada modelo. Entre todos suman el X% que reporta Ollama (p. ej. `84.2%` de una sesión al `10.7%` → `9.01%`).
+- **Porcentajes también en la semanal.** Inyecta el mismo porcentaje reescalado en la lista nativa "Models used this week" de Ollama.
+- **Hora exacta de reset.** Añade la fecha y hora absolutas junto al tiempo relativo, p. ej. "Resets in 2 hours. (August 27, 2026 at 2:00 AM)".
 - Sobrevive a las actualizaciones de htmx y a la navegación SPA, y se limpia al salir de la página de ajustes.
 
 ## Instalación
@@ -22,17 +22,17 @@ Userscript de Tampermonkey que mejora los medidores de uso de [ollama.com/settin
 
 ### Manual
 
-Abre el panel de Tampermonkey → crea un script nuevo → pega el contenido de [`ollama-usage-breakdown.user.js`](./ollama-usage-breakdown.user.js) → guarda.
+Abre el panel de Tampermonkey, crea un script nuevo, pega el contenido de [`ollama-usage-breakdown.user.js`](./ollama-usage-breakdown.user.js) y guarda. Después visita <https://ollama.com/settings>.
 
 ## Notas
 
 - Los porcentajes se leen del HTML de Ollama (anchos de los segmentos de la barra), no de una API privada. Si Ollama cambia su estructura, puede hacer falta actualizar el script.
-- Solo se ejecuta en `https://ollama.com/settings` (URL exacta — no en `/settings/keys`, `/settings/billing` ni `/settings/profile`) y no requiere permisos especiales (`@grant none`).
+- Solo se ejecuta en `https://ollama.com/settings` (URL exacta, no en `/settings/keys`, `/settings/billing` ni `/settings/profile`) y no requiere permisos especiales (`@grant none`).
 
-## ⚠️ Aviso: generado por IA
+## Aviso: generado por IA
 
-Este userscript está **escrito y mantenido con ayuda de IA**. No está afiliado a Ollama, ni respaldado por ella, ni conectado con ella de ninguna forma.
+Este userscript está escrito y mantenido con ayuda de IA. No está afiliado a Ollama, ni respaldado por ella, ni conectado con ella de ninguna forma.
 
-- El código se produce mediante desarrollo asistido por IA y se revisa antes de cada publicación, pero puede contener errores o dejar de funcionar si Ollama cambia su web.
+- La IA escribe el código y un humano lo revisa antes de cada publicación. Los dos pueden equivocarse, así que puede contener errores o dejar de funcionar si Ollama cambia su web.
 - Úsalo bajo tu propia responsabilidad y revisa siempre un userscript antes de instalarlo.
 - Los issues y pull requests son bienvenidos, incluidas las correcciones de todo aquello que la IA haya hecho mal.
