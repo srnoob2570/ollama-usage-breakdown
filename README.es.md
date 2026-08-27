@@ -27,7 +27,7 @@ Abre el panel de Tampermonkey → crea un script nuevo → pega el contenido de 
 ## Notas
 
 - Los porcentajes se leen del HTML de Ollama (anchos de los segmentos de la barra), no de una API privada. Si Ollama cambia su estructura, puede hacer falta actualizar el script.
-- Solo se ejecuta en `https://ollama.com/settings*` y no requiere permisos especiales (`@grant none`).
+- Solo se ejecuta en `https://ollama.com/settings` (URL exacta — no en `/settings/keys`, `/settings/billing` ni `/settings/profile`) y no requiere permisos especiales (`@grant none`).
 
 ## ⚠️ Aviso: generado por IA
 

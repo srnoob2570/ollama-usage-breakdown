@@ -27,7 +27,7 @@ Open the Tampermonkey dashboard → create a new script → paste the contents o
 ## Notes
 
 - Percentages are read from Ollama's page (bar segment widths), not from a private API. If Ollama changes its markup, the script may need an update.
-- The script only runs on `https://ollama.com/settings*` and requires no special permissions (`@grant none`).
+- The script only runs on `https://ollama.com/settings` (exact URL — not on `/settings/keys`, `/settings/billing` or `/settings/profile`) and requires no special permissions (`@grant none`).
 
 ## ⚠️ Disclaimer: AI-generated
 
