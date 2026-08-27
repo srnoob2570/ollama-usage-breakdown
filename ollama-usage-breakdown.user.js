@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ollama Usage Breakdown
 // @namespace    https://github.com/srnoob2570
-// @version      1.2.3
-// @description  Shows a clearer Ollama Cloud usage bar, per-model breakdown, and inline exact reset times.
+// @version      1.3.2
+// @description  Adds an Ollama-style per-model session breakdown and inline per-model usage percentages.
 // @author       srnoob2570
 // @match        https://ollama.com/settings*
 // @homepageURL  https://github.com/srnoob2570/ollama-usage-breakdown
@@ -19,6 +19,11 @@
     const TRACK = "[data-usage-track]";
     const SEGMENT = "[data-usage-segment]";
     const PANEL = "data-ollama-usage-enhancer";
+    const WEEKLY_LIST_ID = "weekly-usage-models";
+    const WEEKLY_LIST_LABEL = "Models used this week";
+    const SESSION_LIST_LABEL = "Models used this session";
+    const PCT_MARK = "data-oue-pct";
+    const COUNT_MARK = "data-oue-num";
     const STYLE_ID = "ollama-usage-enhancer-styles";
     const panels = new WeakMap();
     const formatNumber = new Intl.NumberFormat(
@@ -34,116 +39,18 @@
 
     let refreshQueued = false;
 
+    // Fixed-width, right-aligned numeric columns keep the request counts and
+    // percentages lined up in both breakdowns (Ollama ships a compiled
+    // Tailwind build, so arbitrary utilities like min-w-[5.5rem] are not
+    // guaranteed to exist and a small style block is the safe route).
     function addStyles() {
         if (document.getElementById(STYLE_ID)) return;
 
         const style = document.createElement("style");
         style.id = STYLE_ID;
         style.textContent = `
-      [${PANEL}] {
-        width: 100%;
-        margin-top: .65rem;
-        padding: .75rem;
-        box-sizing: border-box;
-        color: inherit;
-        font: inherit;
-        border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-        border-radius: .75rem;
-        background: color-mix(in srgb, currentColor 4%, transparent);
-      }
-      [${PANEL}] * { box-sizing: border-box; }
-      [${PANEL}] .oue-head,
-      [${PANEL}] summary,
-      [${PANEL}] .oue-row,
-      [${PANEL}] .oue-model {
-        display: flex;
-        align-items: center;
-      }
-      [${PANEL}] .oue-head,
-      [${PANEL}] summary {
-        justify-content: space-between;
-        gap: .75rem;
-      }
-      [${PANEL}] .oue-title { font-size: .875rem; font-weight: 600; }
-      [${PANEL}] .oue-meta,
-      [${PANEL}] .oue-count { font-size: .75rem; opacity: .68; }
-      [${PANEL}] .oue-bar {
-        display: flex;
-        width: 100%;
-        height: .75rem;
-        margin-top: .55rem;
-        overflow: hidden;
-        border-radius: 999px;
-        background: color-mix(in srgb, currentColor 13%, transparent);
-      }
-      [${PANEL}] .oue-segment { height: 100%; flex: 0 0 auto; }
-      [${PANEL}] .oue-empty {
-        height: auto;
-        min-height: 1.35rem;
-        align-items: center;
-        justify-content: center;
-        font-size: .7rem;
-        opacity: .7;
-      }
-      [${PANEL}] details { margin-top: .6rem; }
-      [${PANEL}] summary {
-        cursor: pointer;
-        font-size: .8rem;
-        font-weight: 600;
-        list-style: none;
-      }
-      [${PANEL}] summary::-webkit-details-marker { display: none; }
-      [${PANEL}] .oue-summary-end {
-        display: inline-flex;
-        align-items: center;
-        gap: .5rem;
-      }
-      [${PANEL}] .oue-toggle {
-        width: .5rem;
-        height: .5rem;
-        flex: 0 0 auto;
-        border-right: 1.5px solid currentColor;
-        border-bottom: 1.5px solid currentColor;
-        opacity: .7;
-        transform: rotate(45deg) translate(-1px, -1px);
-        transition: transform 120ms ease;
-      }
-      [${PANEL}] details:not([open]) .oue-toggle {
-        transform: rotate(-45deg) translate(1px, 1px);
-      }
-      [${PANEL}] .oue-list { display: grid; gap: .15rem; margin-top: .45rem; }
-      [${PANEL}] .oue-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        gap: .65rem;
-        min-height: 2rem;
-        padding: .35rem .45rem;
-        border-radius: .5rem;
-        font-size: .76rem;
-      }
-      [${PANEL}] .oue-row:hover {
-        background: color-mix(in srgb, currentColor 6%, transparent);
-      }
-      [${PANEL}] .oue-model { min-width: 0; gap: .5rem; }
-      [${PANEL}] .oue-dot {
-        width: .62rem;
-        height: .62rem;
-        flex: 0 0 auto;
-        border-radius: 50%;
-      }
-      [${PANEL}] .oue-name {
-        overflow: hidden;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      [${PANEL}] .oue-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
-      [${PANEL}] .oue-width { min-width: 3.4rem; text-align: right; opacity: .7; }
-      @media (max-width: 540px) {
-        [${PANEL}] .oue-head { align-items: flex-start; flex-direction: column; gap: .2rem; }
-        [${PANEL}] .oue-row { grid-template-columns: minmax(0, 1fr) auto; }
-        [${PANEL}] .oue-width { grid-column: 2; }
-      }
+      .oue-num { min-width: 5.5rem; text-align: right; }
+      .oue-pct { min-width: 3.5rem; text-align: right; }
     `;
         (document.head || document.documentElement).append(style);
     }
@@ -190,52 +97,63 @@
             : color;
     }
 
-    function readSegments(track) {
-        return [...track.querySelectorAll(SEGMENT)]
-            .map((segment, index) => {
-                const width = segment.style.width.trim();
-                return {
-                    name: modelName(segment, index),
-                    requests: requests(segment),
-                    width,
-                    percent: percent(width),
-                    color: segmentColor(segment),
-                };
-            })
-            .sort(
-                (a, b) =>
-                    (b.percent ?? -1) - (a.percent ?? -1) ||
-                    (b.requests ?? -1) - (a.requests ?? -1) ||
-                    a.name.localeCompare(b.name),
-            );
+    // Overall usage reported by Ollama in the track label ("Session usage
+    // 10.7% used" -> 10.7), used to rescale the per-model segment shares.
+    function overallUsagePercent(track) {
+        const match = (track.getAttribute("aria-label") || "").match(
+            /(\d+(?:[.,]\d+)?)\s*%/,
+        );
+        return match ? Number(match[1].replace(",", ".")) : null;
     }
 
-    function readMetadata(track) {
-        const label = track.getAttribute("aria-label")?.trim() || "";
-        const percentage =
-            label.match(/\d+(?:[.,]\d+)?\s*%/)?.[0]?.replace(/\s/g, "") || null;
-        const type = percentage
-            ? label
-                  .slice(0, label.indexOf(percentage.replace("%", "")))
-                  .replace(/[\s,:;–—-]+$/, "")
-                  .trim()
-            : label;
-
-        return {
-            type: type || "Cloud usage",
-            percentage,
-        };
+    // Ollama exposes each model's usage share only as the segment width in
+    // its own HTML, and those widths are shares of the used portion (they
+    // sum to 100%). Rescaling them by the overall "X% used" measures every
+    // model against the total limit, so the percentages sum to X instead.
+    function readSegments(track, share) {
+        return [...track.querySelectorAll(SEGMENT)].map((segment, index) => {
+            const width = segment.style.width.trim();
+            const sharePercent = percent(width);
+            return {
+                name: modelName(segment, index),
+                requests: requests(segment),
+                width,
+                percent: sharePercent,
+                absolute:
+                    sharePercent !== null && share !== null
+                        ? (sharePercent * share) / 100
+                        : null,
+                color: segmentColor(segment),
+            };
+        });
     }
 
     function formatRequests(value) {
-        if (value === null) return "Request count unavailable";
+        if (value === null) return "—";
         return `${formatNumber.format(value)} ${value === 1 ? "request" : "requests"}`;
     }
 
-    function tooltip(segment) {
-        return [segment.name, formatRequests(segment.requests), segment.width]
-            .filter(Boolean)
-            .join(" · ");
+    function formatAbsolute(value) {
+        if (value === null) return null;
+        if (value === 0) return "0%";
+        const rounded = value.toFixed(2);
+        return rounded === "0.00" ? "<0.01%" : `${rounded}%`;
+    }
+
+    // Prefer the rescaled percentage; fall back to Ollama's raw width when
+    // the overall usage figure is unavailable.
+    function usageLabel(item) {
+        return formatAbsolute(item.absolute) || item.width || "—";
+    }
+
+    function trackForKind(kind, tracks) {
+        return (
+            tracks.find((track) =>
+                new RegExp(kind, "i").test(
+                    track.getAttribute("aria-label") || "",
+                ),
+            ) || null
+        );
     }
 
     function enhanceResetTimes() {
@@ -270,13 +188,15 @@
         });
     }
 
-    function render(track, segments) {
+    // Session breakdown rendered with the exact same markup Ollama uses for
+    // its native weekly list ("Models used this week"), plus a percentage.
+    function renderSessionList(track, segments) {
         let panel = panels.get(track);
-        const wasOpen = panel?.querySelector("details")?.open ?? false;
-
         if (!panel) {
-            panel = document.createElement("section");
+            panel = document.createElement("div");
+            panel.id = "session-usage-models";
             panel.setAttribute(PANEL, "");
+            panel.className = "mt-3 space-y-1.5";
             panels.set(track, panel);
         }
 
@@ -291,91 +211,101 @@
             insertionPoint.after(panel);
         }
         panel.replaceChildren();
+        panel.append(element("div", "text-xs text-neutral-500", SESSION_LIST_LABEL));
 
-        const metadata = readMetadata(track);
-        const total = segments.reduce(
-            (sum, item) => sum + (item.requests ?? 0),
-            0,
-        );
-        const head = element("div", "oue-head");
-        const title = element("div", "oue-title", metadata.type);
-        const meta = element(
-            "div",
-            "oue-meta",
-            [
-                metadata.percentage &&
-                    `${metadata.percentage} reported by Ollama`,
-                `Detected total: ${formatRequests(total)}`,
-            ]
-                .filter(Boolean)
-                .join(" · "),
-        );
-        head.append(title, meta);
-
-        const bar = element("div", "oue-bar");
-        bar.setAttribute("role", "img");
-        bar.setAttribute(
-            "aria-label",
-            `Model distribution: ${segments.map(tooltip).join("; ")}`,
-        );
-
-        for (const item of segments.filter(({ width }) => width)) {
-            const part = element("span", "oue-segment");
-            const label = tooltip(item);
-            part.style.width = item.width;
-            part.style.backgroundColor = item.color;
-            if ((item.percent ?? 0) > 0) part.style.minWidth = "2px";
-            part.title = label;
-            part.setAttribute("aria-label", label);
-            bar.append(part);
-        }
-
-        if (!bar.children.length) {
-            bar.classList.add("oue-empty");
-            bar.textContent = "No usable segment widths found";
-        }
-
-        const details = element("details");
-        details.open = wasOpen;
-        const summary = element("summary");
-        const summaryEnd = element("span", "oue-summary-end");
-        const count = element(
-            "span",
-            "oue-count",
-            `${segments.length} ${segments.length === 1 ? "model" : "models"}`,
-        );
-        const toggle = element("span", "oue-toggle");
-        toggle.setAttribute("aria-hidden", "true");
-        summaryEnd.append(count, toggle);
-        summary.append(element("span", "", "Breakdown by model"), summaryEnd);
-
-        const list = element("div", "oue-list");
         for (const item of segments) {
-            const row = element("div", "oue-row");
-            const model = element("div", "oue-model");
-            const dot = element("span", "oue-dot");
-            const name = element("span", "oue-name", item.name);
+            const row = element("div", "flex min-w-0 items-center gap-2 text-xs");
+            const dot = element("span", "h-2 w-2 flex-none rounded-sm");
+            const name = element(
+                "span",
+                "min-w-0 flex-1 truncate text-neutral-700",
+                item.name,
+            );
 
-            dot.style.backgroundColor = item.color;
+            dot.style.background = item.color;
+            dot.setAttribute("aria-hidden", "true");
             name.title = item.name;
-            model.append(dot, name);
             row.append(
-                model,
+                dot,
+                name,
                 element(
                     "span",
-                    "oue-value",
-                    item.requests === null
-                        ? "— requests"
-                        : formatRequests(item.requests),
+                    "oue-num flex-none tabular-nums text-neutral-400",
+                    formatRequests(item.requests),
                 ),
-                element("span", "oue-value oue-width", item.width || "—"),
+                element(
+                    "span",
+                    "oue-pct flex-none tabular-nums text-neutral-400",
+                    usageLabel(item),
+                ),
             );
-            list.append(row);
+            panel.append(row);
         }
 
-        details.append(summary, list);
-        panel.append(head, bar, details);
         return panel;
+    }
+
+    function weeklyUsageList() {
+        const byId = document.getElementById(WEEKLY_LIST_ID);
+        if (byId) return byId;
+
+        const heading = [...document.querySelectorAll("div.text-xs")].find(
+            (node) => node.textContent.trim() === WEEKLY_LIST_LABEL,
+        );
+        return heading?.parentElement ?? null;
+    }
+
+    // Ollama's native weekly list shows request counts but no per-model
+    // percentage, so inject the share Ollama encodes in the meter segments.
+    function enhanceWeeklyList(track, segments) {
+        const list = weeklyUsageList();
+        if (!list) return;
+
+        const labelsByName = new Map();
+        for (const item of segments) {
+            if (item.width) labelsByName.set(item.name, usageLabel(item));
+        }
+
+        list.querySelectorAll(":scope > div").forEach((row) => {
+            const nameSpan = row.querySelector("span[title]");
+            const name =
+                nameSpan?.getAttribute("title")?.trim() ||
+                nameSpan?.textContent?.trim();
+            if (!name) return;
+
+            const label = labelsByName.get(name);
+            let pct = row.querySelector(`[${PCT_MARK}]`);
+            const countSpan = [...row.querySelectorAll("span.tabular-nums")].find(
+                (span) => !span.hasAttribute(PCT_MARK),
+            );
+
+            if (!label) {
+                pct?.remove();
+                if (countSpan?.hasAttribute(COUNT_MARK)) {
+                    countSpan.classList.remove("oue-num");
+                    countSpan.removeAttribute(COUNT_MARK);
+                }
+                return;
+            }
+
+            // Align Ollama's request counts into the same fixed column the
+            // session list uses; the marker allows reverting it on cleanup.
+            if (countSpan && !countSpan.hasAttribute(COUNT_MARK)) {
+                countSpan.classList.add("oue-num");
+                countSpan.setAttribute(COUNT_MARK, "");
+            }
+
+            if (!pct) {
+                pct = element(
+                    "span",
+                    "oue-pct flex-none tabular-nums text-neutral-400",
+                );
+                pct.setAttribute(PCT_MARK, "");
+                (countSpan || nameSpan).after(pct);
+            }
+
+            if (pct.textContent !== label) pct.textContent = label;
+        });
     }
 
     function refresh() {
@@ -383,19 +313,44 @@
 
         if (!/^\/settings\/?$/.test(location.pathname)) {
             document
-                .querySelectorAll(`[${PANEL}]`)
-                .forEach((panel) => panel.remove());
+                .querySelectorAll(`[${PANEL}],[${PCT_MARK}]`)
+                .forEach((node) => node.remove());
+            document.querySelectorAll(`[${COUNT_MARK}]`).forEach((span) => {
+                span.classList.remove("oue-num");
+                span.removeAttribute(COUNT_MARK);
+            });
             return;
         }
 
         addStyles();
         enhanceResetTimes();
+
+        const tracks = [...document.querySelectorAll(TRACK)];
+        const sessionTrack =
+            trackForKind("session", tracks) || tracks[0] || null;
+        const weeklyTrack =
+            trackForKind("weekly", tracks) ||
+            tracks.find((track) => track !== sessionTrack) ||
+            null;
+
         const activePanels = new Set();
 
-        document.querySelectorAll(TRACK).forEach((track) => {
-            const segments = readSegments(track);
-            if (segments.length) activePanels.add(render(track, segments));
-        });
+        if (sessionTrack) {
+            const segments = readSegments(
+                sessionTrack,
+                overallUsagePercent(sessionTrack),
+            );
+            if (segments.length) {
+                activePanels.add(renderSessionList(sessionTrack, segments));
+            }
+        }
+
+        if (weeklyTrack) {
+            enhanceWeeklyList(
+                weeklyTrack,
+                readSegments(weeklyTrack, overallUsagePercent(weeklyTrack)),
+            );
+        }
 
         document.querySelectorAll(`[${PANEL}]`).forEach((panel) => {
             if (!activePanels.has(panel)) panel.remove();
@@ -408,10 +363,28 @@
         requestAnimationFrame(refresh);
     }
 
+    function isOwnChange(node) {
+        return (
+            node instanceof Element &&
+            (node.hasAttribute(PANEL) ||
+                node.hasAttribute(PCT_MARK) ||
+                node.closest(`[${PANEL}],[${PCT_MARK}]`) !== null)
+        );
+    }
+
     new MutationObserver((mutations) => {
         const externalChange = mutations.some(
-            ({ target }) =>
-                !(target instanceof Element && target.closest(`[${PANEL}]`)),
+            ({ target, addedNodes, removedNodes }) => {
+                if (
+                    target instanceof Element &&
+                    target.closest(`[${PANEL}],[${PCT_MARK}]`)
+                ) {
+                    return false;
+                }
+                const changed = [...addedNodes, ...removedNodes];
+                if (changed.length && changed.every(isOwnChange)) return false;
+                return true;
+            },
         );
         if (externalChange) scheduleRefresh();
     }).observe(document.documentElement, {
