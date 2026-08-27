@@ -24,40 +24,31 @@
 (() => {
     "use strict";
 
-    // ---- This script's own markers ---------------------------------------
-    // Attributes and ids this script puts on its own nodes, so refreshes can
-    // find and undo their work. Ollama never renders these.
     const PANEL = "data-oue-panel";
     const PCT_MARK = "data-oue-pct";
     const COUNT_MARK = "data-oue-num";
     const STYLE_ID = "ollama-usage-enhancer-styles";
 
-    // ---- The ollama.com markup contract ----------------------------------
-    // Everything this script matches against or reads on Ollama's /settings
-    // page. If Ollama changes their markup, this block is the only place
-    // that should need edits.
     const OLLAMA = {
-        track: "[data-usage-track]",                   // usage meter bar
-        segment: "[data-usage-segment]",               // one per-model slice of a bar
-        meter: "[data-usage-meter]",                   // wrapper element around a track
-        localTime: ".local-time[data-time]",           // "Resets in ..." line
-        weeklyListId: "weekly-usage-models",           // native weekly list container
-        weeklyHeading: "Models used this week",        // its heading text
-        sessionLabel: /session/i,                      // track aria-label "Session usage ..."
-        weeklyLabel: /weekly/i,                        // track aria-label "Weekly usage ..."
-        requestsAttr: "data-requests",                 // per-segment request count
-        modelAttr: "data-model",                       // per-segment model name
-        timeAttr: "data-time",                         // absolute reset timestamp
-        countLabel: /(\d[\d.,]*)\s+requests?/i,        // aria-label "... 42 requests"
-        countSuffix: /:\s*\d[\d.,]*\s+requests?\s*$/i, // that suffix, stripped from names
+        track: "[data-usage-track]",
+        segment: "[data-usage-segment]",
+        meter: "[data-usage-meter]",
+        localTime: ".local-time[data-time]",
+        weeklyListId: "weekly-usage-models",
+        weeklyHeading: "Models used this week",
+        sessionLabel: /session/i,
+        weeklyLabel: /weekly/i,
+        requestsAttr: "data-requests",
+        modelAttr: "data-model",
+        timeAttr: "data-time",
+        countLabel: /(\d[\d.,]*)\s+requests?/i,
+        countSuffix: /:\s*\d[\d.,]*\s+requests?\s*$/i,
     };
 
-    // Session panel per track; a WeakMap lets removed tracks be collected.
     const panels = new WeakMap();
     const numberFormat = new Intl.NumberFormat(
         document.documentElement.lang || undefined,
     );
-    // Reset timestamps are pinned to en-US so they do not vary with page locale.
     const resetFormat = new Intl.DateTimeFormat("en-US", {
         year: "numeric",
         month: "long",
@@ -68,8 +59,6 @@
 
     let refreshQueued = false;
 
-    // Ollama ships a compiled Tailwind build, so arbitrary utilities like
-    // min-w-[5.5rem] are not guaranteed to exist; a style block is reliable.
     function addStyles() {
         if (document.getElementById(STYLE_ID)) return;
         const style = document.createElement("style");
@@ -77,7 +66,6 @@
         style.textContent = `
       .oue-num { min-width: 5.5rem; text-align: right; }
       .oue-pct { min-width: 3.5rem; text-align: right; }
-      /* Keep the native weekly list in step with the session panel's spacing. */
       #${OLLAMA.weeklyListId} { margin-top: 1.25rem; }
     `;
         (document.head || document.documentElement).append(style);
@@ -90,26 +78,16 @@
         return node;
     }
 
-    // "84.2%" or "84,2%" -> 84.2, else null.
     function percentFrom(text) {
         const match = text?.match(/(-?\d+(?:[.,]\d+)?)\s*%/);
         return match ? Number(match[1].replace(",", ".")) : null;
     }
 
-    // Overall usage Ollama reports in the track's aria-label
-    // ("Session usage 10.7% used" -> 10.7).
     const overallUsage = (track) => percentFrom(track.getAttribute("aria-label"));
 
-    // Turn each usage segment into a record. Ollama exposes each model's
-    // share only as the segment width, and those widths are shares of the
-    // used portion (they sum to 100%). Rescaling by the overall "X% used"
-    // measures every model against the total limit, so the results sum to X.
     function readSegments(track, share) {
         return [...track.querySelectorAll(OLLAMA.segment)].map(
             (segment, index) => {
-                // Request count: data-requests when it is a plain number, else
-                // the aria-label ("42 requests"). Separators are stripped, so
-                // "1,234" parses as 1234.
                 const attr = segment.getAttribute(OLLAMA.requestsAttr)?.trim();
                 const raw = /^\d[\d.,\s]*$/.test(attr || "")
                     ? attr
@@ -118,8 +96,6 @@
                           ?.match(OLLAMA.countLabel)?.[1];
                 const parsed = raw ? Number(raw.replace(/\D/g, "")) : null;
 
-                // Name: data-model, then the aria-label minus its
-                // "N requests" suffix, then a positional fallback.
                 const name =
                     segment.getAttribute(OLLAMA.modelAttr)?.trim() ||
                     segment
@@ -153,9 +129,6 @@
         );
     }
 
-    // Label for a segment record: the rescaled percentage with two decimals
-    // (nonzero values that round down to "0.00" show as "<0.01%"), falling
-    // back to Ollama's raw width.
     function usageLabel(item) {
         if (item.absolute === null) return item.width || "—";
         if (item.absolute === 0) return "0%";
@@ -171,11 +144,6 @@
         );
     }
 
-    // Appends the absolute reset time to each .local-time[data-time]. Ollama
-    // rewrites the relative text in place as it ticks, so the last seen
-    // relative text is kept on the element itself (data-oue-relative-text)
-    // and re-derived whenever the displayed text differs from what this
-    // script last wrote.
     function enhanceResetTimes() {
         document.querySelectorAll(OLLAMA.localTime).forEach((time) => {
             const resetAt = new Date(time.getAttribute(OLLAMA.timeAttr));
@@ -194,10 +162,6 @@
         });
     }
 
-    // Renders the "Models used this session" list with the same markup Ollama
-    // uses for its native weekly list, plus a percentage column. The panel is
-    // cached per track, placed after the meter's reset time when one exists
-    // (after the track otherwise), and rebuilt from scratch on every pass.
     function renderSessionList(track, segments) {
         let panel = panels.get(track);
         if (!panel) {
@@ -256,11 +220,6 @@
         return panel;
     }
 
-    // Injects per-model percentages into Ollama's native weekly list and
-    // aligns its request counts into the fixed-width column the session list
-    // uses. Rows whose model has no matching segment are reverted. The list
-    // is found by its well-known id, else as the parent of the div whose text
-    // is the weekly heading.
     function enhanceWeeklyList(segments) {
         const list =
             document.getElementById(OLLAMA.weeklyListId) ||
@@ -313,8 +272,6 @@
         }
     }
 
-    // Removes or reverts everything this script added; runs when the page is
-    // somewhere other than /settings.
     function cleanup() {
         document
             .querySelectorAll(`[${PANEL}],[${PCT_MARK}]`)
@@ -331,9 +288,6 @@
         document.getElementById(STYLE_ID)?.remove();
     }
 
-    // Reconcile the page with the desired enhancements; safe to run often.
-    // When no aria-label matches, the first track that is not clearly the
-    // other meter is treated as session, and the next one as weekly.
     function refresh() {
         refreshQueued = false;
 
@@ -382,8 +336,6 @@
         });
     }
 
-    // Coalesces bursts of mutations into one pass. rAF does not fire while the
-    // tab is hidden, so background updates use a timer instead.
     function scheduleRefresh() {
         if (refreshQueued) return;
         refreshQueued = true;
@@ -391,10 +343,6 @@
         else requestAnimationFrame(refresh);
     }
 
-    // Whether a mutated node belongs to this script's own additions, so the
-    // observer ignores self-inflicted mutations. The one write this cannot
-    // cover (text inside Ollama's reset-time nodes) converges after a single
-    // idempotent pass.
     function isOwnChange(node) {
         return (
             node instanceof Element &&
@@ -431,7 +379,6 @@
         ],
     });
 
-    // The observer covers content swaps; these cover the navigation event.
     window.addEventListener("popstate", scheduleRefresh);
     window.addEventListener("hashchange", scheduleRefresh);
     window.navigation?.addEventListener?.("navigate", scheduleRefresh);
