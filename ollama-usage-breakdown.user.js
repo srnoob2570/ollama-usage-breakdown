@@ -181,10 +181,7 @@
      *   label contains none.
      */
     function overallUsagePercent(track) {
-        const match = (track.getAttribute("aria-label") || "").match(
-            /(\d+(?:[.,]\d+)?)\s*%/,
-        );
-        return match ? Number(match[1].replace(",", ".")) : null;
+        return percent(track.getAttribute("aria-label") || undefined);
     }
 
     /**
@@ -312,17 +309,6 @@
             if (currentText !== display) time.textContent = display;
             time.dataset.ollamaUsageEnhancerRelativeResetText = relativeTime;
             time.dataset.ollamaUsageEnhancerResetDisplay = display;
-
-            // Remove the hover-only data added by version 1.2.1, without
-            // changing the tooltip that Ollama itself provides.
-            if (time.title.startsWith("Exact reset time:")) {
-                time.removeAttribute("title");
-            }
-            if (
-                time.getAttribute("aria-label")?.includes(". Exact reset time:")
-            ) {
-                time.removeAttribute("aria-label");
-            }
         });
     }
 
@@ -422,11 +408,9 @@
      * cleanup can revert the styling. Rows whose model has no matching
      * segment lose the injected column again.
      *
-     * @param {Element} track - Weekly usage track (not read directly; the
-     *   list is located via weeklyUsageList()).
      * @param {ReturnType<typeof readSegments>} segments - Segment records.
      */
-    function enhanceWeeklyList(track, segments) {
+    function enhanceWeeklyList(segments) {
         const list = weeklyUsageList();
         if (!list) return;
 
@@ -526,7 +510,6 @@
 
         if (weeklyTrack) {
             enhanceWeeklyList(
-                weeklyTrack,
                 readSegments(weeklyTrack, overallUsagePercent(weeklyTrack)),
             );
         }
