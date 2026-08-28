@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ollama Usage Breakdown
 // @namespace    https://github.com/srnoob2570
-// @version      1.3.5
+// @version      1.3.6
 // @description  Adds an Ollama-style per-model session breakdown and inline per-model usage percentages.
 // @author       srnoob2570
 // @match        https://ollama.com/settings
@@ -60,6 +60,7 @@
     });
 
     let refreshQueued = false;
+    let injected = false;
 
     function addStyles() {
         if (document.getElementById(STYLE_ID)) return;
@@ -71,6 +72,7 @@
       #${OLLAMA.weeklyListId} { margin-top: 1.25rem; }
     `;
         (document.head || document.documentElement).append(style);
+        injected = true;
     }
 
     function element(tag, className, text) {
@@ -87,17 +89,9 @@
 
     const overallUsage = (track) => percentFrom(track.getAttribute("aria-label"));
 
-    function readSegments(track, share) {
+    function readSegments(track, share, details = false) {
         return [...track.querySelectorAll(OLLAMA.segment)].map(
             (segment, index) => {
-                const attr = segment.getAttribute(OLLAMA.requestsAttr)?.trim();
-                const raw = /^\d[\d.,\s]*$/.test(attr || "")
-                    ? attr
-                    : segment
-                          .getAttribute("aria-label")
-                          ?.match(OLLAMA.countLabel)?.[1];
-                const parsed = raw ? Number(raw.replace(/\D/g, "")) : null;
-
                 const name =
                     segment.getAttribute(OLLAMA.modelAttr)?.trim() ||
                     segment
@@ -108,25 +102,37 @@
 
                 const width = segment.style.width.trim();
                 const widthPercent = percentFrom(width);
-                const color = getComputedStyle(segment).backgroundColor;
-                return {
+                const item = {
                     name,
-                    requests:
-                        parsed !== null && Number.isSafeInteger(parsed)
-                            ? parsed
-                            : null,
                     width,
                     absolute:
                         widthPercent !== null && share !== null
                             ? (widthPercent * share) / 100
                             : null,
-                    color:
+                };
+                if (details) {
+                    const attr = segment
+                        .getAttribute(OLLAMA.requestsAttr)
+                        ?.trim();
+                    const raw = /^\d[\d.,\s]*$/.test(attr || "")
+                        ? attr
+                        : segment
+                              .getAttribute("aria-label")
+                              ?.match(OLLAMA.countLabel)?.[1];
+                    const parsed = raw ? Number(raw.replace(/\D/g, "")) : null;
+                    const color = getComputedStyle(segment).backgroundColor;
+                    item.requests =
+                        parsed !== null && Number.isSafeInteger(parsed)
+                            ? parsed
+                            : null;
+                    item.color =
                         !color ||
                         color === "transparent" ||
                         color === "rgba(0, 0, 0, 0)"
                             ? "currentColor"
-                            : color,
-                };
+                            : color;
+                }
+                return item;
             },
         );
     }
@@ -148,18 +154,16 @@
 
     function enhanceResetTimes() {
         document.querySelectorAll(OLLAMA.localTime).forEach((time) => {
-            const resetAt = new Date(time.getAttribute(OLLAMA.timeAttr));
             const currentText = time.textContent.trim();
-            if (Number.isNaN(resetAt.getTime()) || !currentText) return;
+            if (!currentText || currentText === time.dataset.oueResetDisplay) {
+                return;
+            }
+            const resetAt = new Date(time.getAttribute(OLLAMA.timeAttr));
+            if (Number.isNaN(resetAt.getTime())) return;
 
-            const relativeText =
-                currentText !== time.dataset.oueResetDisplay
-                    ? currentText
-                    : time.dataset.oueRelativeText || currentText;
-            const display = `${relativeText} (${resetFormat.format(resetAt)})`;
-
-            if (currentText !== display) time.textContent = display;
-            time.dataset.oueRelativeText = relativeText;
+            const display = `${currentText} (${resetFormat.format(resetAt)})`;
+            time.textContent = display;
+            time.dataset.oueRelativeText = currentText;
             time.dataset.oueResetDisplay = display;
         });
     }
@@ -181,6 +185,12 @@
         if (anchor.nextElementSibling !== panel) {
             anchor.after(panel);
         }
+
+        const sig = segments
+            .map((s) => `${s.name}|${s.requests}|${s.width}|${s.color}`)
+            .join("\n");
+        if (panel.dataset.oueSig === sig) return panel;
+        panel.dataset.oueSig = sig;
 
         panel.replaceChildren();
         panel.append(
@@ -239,9 +249,13 @@
                 nameSpan?.getAttribute("title")?.trim() ||
                 nameSpan?.textContent?.trim();
             let pct = row.querySelector(`[${PCT_MARK}]`);
-            const countSpan = [...row.querySelectorAll("span.tabular-nums")].find(
-                (span) => !span.hasAttribute(PCT_MARK),
-            );
+            let countSpan = null;
+            for (const span of row.querySelectorAll("span.tabular-nums")) {
+                if (!span.hasAttribute(PCT_MARK)) {
+                    countSpan = span;
+                    break;
+                }
+            }
 
             if (!name || !labelsByName.has(name)) {
                 pct?.remove();
@@ -268,6 +282,8 @@
     }
 
     function cleanup() {
+        if (!injected) return;
+        injected = false;
         document
             .querySelectorAll(OWN_MARKS)
             .forEach((node) => node.remove());
@@ -315,6 +331,7 @@
             const segments = readSegments(
                 sessionTrack,
                 overallUsage(sessionTrack),
+                true,
             );
             if (segments.length) {
                 activePanels.add(renderSessionList(sessionTrack, segments));
@@ -347,20 +364,27 @@
         );
     }
 
+    const hasForeignNode = (list) => {
+        for (const node of list) {
+            if (!isOwnChange(node)) return true;
+        }
+        return false;
+    };
+
     new MutationObserver((mutations) => {
-        const externalChange = mutations.some(
-            ({ target, addedNodes, removedNodes }) => {
-                if (
-                    target instanceof Element &&
-                    target.closest(OWN_MARKS)
-                ) {
-                    return false;
-                }
-                const changed = [...addedNodes, ...removedNodes];
-                return !(changed.length && changed.every(isOwnChange));
-            },
-        );
-        if (externalChange) scheduleRefresh();
+        for (const { target, addedNodes, removedNodes } of mutations) {
+            if (target instanceof Element && target.closest(OWN_MARKS)) {
+                continue;
+            }
+            if (
+                (!addedNodes.length && !removedNodes.length) ||
+                hasForeignNode(addedNodes) ||
+                hasForeignNode(removedNodes)
+            ) {
+                scheduleRefresh();
+                return;
+            }
+        }
     }).observe(document.documentElement, {
         childList: true,
         subtree: true,
