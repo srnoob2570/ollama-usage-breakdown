@@ -2,7 +2,7 @@
 
 Userscript de Tampermonkey que hace los medidores de uso de [ollama.com/settings](https://ollama.com/settings) mucho más legibles, con un desglose por modelo de tu uso de Ollama Cloud.
 
-![El script en acción: medidores de sesión y semanal con desglose por modelo de peticiones y porcentajes](./docs/screenshot.png)
+![Medidor de sesión con desglose por modelo de peticiones y porcentajes](./docs/session.png) ![Medidor semanal con porcentajes por modelo](./docs/weekly.png)
 
 > English version available: [README.md](./README.md)
 
