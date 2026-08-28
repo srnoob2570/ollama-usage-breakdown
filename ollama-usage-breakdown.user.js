@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ollama Usage Breakdown
 // @namespace    https://github.com/srnoob2570
-// @version      1.3.4
+// @version      1.3.5
 // @description  Adds an Ollama-style per-model session breakdown and inline per-model usage percentages.
 // @author       srnoob2570
 // @match        https://ollama.com/settings
@@ -28,6 +28,8 @@
     const PCT_MARK = "data-oue-pct";
     const COUNT_MARK = "data-oue-num";
     const STYLE_ID = "ollama-usage-enhancer-styles";
+    const OWN_MARKS = `[${PANEL}],[${PCT_MARK}]`;
+    const PCT_CLASS = "oue-pct flex-none tabular-nums text-neutral-400";
 
     const OLLAMA = {
         track: "[data-usage-track]",
@@ -166,7 +168,6 @@
         let panel = panels.get(track);
         if (!panel) {
             panel = document.createElement("div");
-            panel.id = "session-usage-models";
             panel.setAttribute(PANEL, "");
             panel.className = "mt-5 space-y-1.5";
             panels.set(track, panel);
@@ -176,8 +177,9 @@
         const resetTime = meter?.nextElementSibling?.matches(OLLAMA.localTime)
             ? meter.nextElementSibling
             : null;
-        if ((resetTime || track).nextElementSibling !== panel) {
-            (resetTime || track).after(panel);
+        const anchor = resetTime || track;
+        if (anchor.nextElementSibling !== panel) {
+            anchor.after(panel);
         }
 
         panel.replaceChildren();
@@ -209,11 +211,7 @@
                     "oue-num flex-none tabular-nums text-neutral-400",
                     count,
                 ),
-                element(
-                    "span",
-                    "oue-pct flex-none tabular-nums text-neutral-400",
-                    usageLabel(item),
-                ),
+                element("span", PCT_CLASS, usageLabel(item)),
             );
             panel.append(row);
         }
@@ -259,10 +257,7 @@
                 countSpan.setAttribute(COUNT_MARK, "");
             }
             if (!pct) {
-                pct = element(
-                    "span",
-                    "oue-pct flex-none tabular-nums text-neutral-400",
-                );
+                pct = element("span", PCT_CLASS);
                 pct.setAttribute(PCT_MARK, "");
                 (countSpan || nameSpan).after(pct);
             }
@@ -274,7 +269,7 @@
 
     function cleanup() {
         document
-            .querySelectorAll(`[${PANEL}],[${PCT_MARK}]`)
+            .querySelectorAll(OWN_MARKS)
             .forEach((node) => node.remove());
         document.querySelectorAll(`[${COUNT_MARK}]`).forEach((span) => {
             span.classList.remove("oue-num");
@@ -348,7 +343,7 @@
             node instanceof Element &&
             (node.hasAttribute(PANEL) ||
                 node.hasAttribute(PCT_MARK) ||
-                node.closest(`[${PANEL}],[${PCT_MARK}]`) !== null)
+                node.closest(OWN_MARKS) !== null)
         );
     }
 
@@ -357,7 +352,7 @@
             ({ target, addedNodes, removedNodes }) => {
                 if (
                     target instanceof Element &&
-                    target.closest(`[${PANEL}],[${PCT_MARK}]`)
+                    target.closest(OWN_MARKS)
                 ) {
                     return false;
                 }
