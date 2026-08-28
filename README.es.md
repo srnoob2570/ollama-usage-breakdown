@@ -1,5 +1,8 @@
 # Ollama Usage Breakdown
 
+[![CodeQL](https://github.com/srnoob2570/ollama-usage-breakdown/actions/workflows/codeql.yml/badge.svg)](https://github.com/srnoob2570/ollama-usage-breakdown/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/srnoob2570/ollama-usage-breakdown/badge)](https://scorecard.dev/viewer/?uri=github.com/srnoob2570/ollama-usage-breakdown)
+
 Userscript de Tampermonkey que hace los medidores de uso de [ollama.com/settings](https://ollama.com/settings) mucho más legibles, con un desglose por modelo de tu uso de Ollama Cloud.
 
 ![Medidor de sesión con desglose por modelo de peticiones y porcentajes](./docs/session.png) ![Medidor semanal con porcentajes por modelo](./docs/weekly.png)
@@ -30,6 +33,17 @@ Abre el panel de Tampermonkey, crea un script nuevo, pega el contenido de [`olla
 
 - Los porcentajes se leen del HTML de Ollama (anchos de los segmentos de la barra), no de una API privada. Si Ollama cambia su estructura, puede hacer falta actualizar el script.
 - Solo se ejecuta en `https://ollama.com/settings` (URL exacta, no en `/settings/keys`, `/settings/billing` ni `/settings/profile`) y no requiere permisos especiales (`@grant none`).
+
+## Seguridad
+
+Este script corre en tu navegador, así que no tienes que confiar en él a ciegas:
+
+- Un solo archivo legible: [`ollama-usage-breakdown.user.js`](./ollama-usage-breakdown.user.js) — sin build, sin ofuscación, sin dependencias.
+- Sin APIs privilegiadas de userscript (`@grant none`): sin peticiones cross-origin, sin acceso a otras pestañas, al portapapeles o al almacenamiento de Tampermonkey. Todo lo que muestra se parsea del DOM de la propia página.
+- Solo se ejecuta en `https://ollama.com/settings` (URL exacta) y solo lee lo que esa página ya te muestra.
+- Cada push y cada pull request se escanean automáticamente con [CodeQL](https://github.com/srnoob2570/ollama-usage-breakdown/security/code-scanning), las queries de seguridad de GitHub.
+
+Las badges de arriba no prueban la ausencia de malware — ninguna badge puede. Lee el script antes de instalarlo y revisa el diff que Tampermonkey muestra en cada actualización.
 
 ## Aviso: generado por IA
 

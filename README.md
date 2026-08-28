@@ -1,5 +1,8 @@
 # Ollama Usage Breakdown
 
+[![CodeQL](https://github.com/srnoob2570/ollama-usage-breakdown/actions/workflows/codeql.yml/badge.svg)](https://github.com/srnoob2570/ollama-usage-breakdown/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/srnoob2570/ollama-usage-breakdown/badge)](https://scorecard.dev/viewer/?uri=github.com/srnoob2570/ollama-usage-breakdown)
+
 A Tampermonkey userscript that makes the usage meters on [ollama.com/settings](https://ollama.com/settings) actually readable, with a per-model breakdown of your Ollama Cloud usage.
 
 ![Session and weekly usage meters with a per-model breakdown of requests and percentages](./docs/session.png) ![Weekly usage meter with per-model percentages](./docs/weekly.png)
@@ -30,6 +33,17 @@ Open the Tampermonkey dashboard, create a new script, and paste in the contents 
 
 - Percentages are read from Ollama's page (bar segment widths), not from a private API. If Ollama changes its markup, the script may need an update.
 - The script only runs on `https://ollama.com/settings` (exact URL, not on `/settings/keys`, `/settings/billing` or `/settings/profile`) and needs no special permissions (`@grant none`).
+
+## Security
+
+This script runs in your browser, so you should never have to trust it blindly:
+
+- One readable file: [`ollama-usage-breakdown.user.js`](./ollama-usage-breakdown.user.js) — no build step, no obfuscation, no dependencies.
+- No privileged userscript APIs (`@grant none`): no cross-origin requests, no access to other tabs, the clipboard, or Tampermonkey storage. Everything it displays is parsed from the page's own DOM.
+- Runs only on `https://ollama.com/settings` (exact URL) and only reads what that page already shows you.
+- Every push and pull request is scanned automatically with [CodeQL](https://github.com/srnoob2570/ollama-usage-breakdown/security/code-scanning) using GitHub's security queries.
+
+The badges above don't prove the absence of malware — no badge can. Read the script before installing it, and check the diff Tampermonkey shows on every update.
 
 ## Disclaimer: AI-generated
 
