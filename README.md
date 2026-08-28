@@ -2,6 +2,8 @@
 
 A Tampermonkey userscript that makes the usage meters on [ollama.com/settings](https://ollama.com/settings) actually readable, with a per-model breakdown of your Ollama Cloud usage.
 
+![Ollama usage breakdown in action: session and weekly meters with a per-model breakdown of requests and percentages](./docs/screenshot.png)
+
 > También disponible en español: [README.es.md](./README.es.md)
 
 > This userscript is generated and updated with AI assistance. It is not affiliated with or endorsed by Ollama. See the [full disclaimer](#disclaimer-ai-generated) below.

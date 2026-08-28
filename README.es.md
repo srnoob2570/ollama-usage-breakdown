@@ -2,6 +2,8 @@
 
 Userscript de Tampermonkey que hace los medidores de uso de [ollama.com/settings](https://ollama.com/settings) mucho más legibles, con un desglose por modelo de tu uso de Ollama Cloud.
 
+![El script en acción: medidores de sesión y semanal con desglose por modelo de peticiones y porcentajes](./docs/screenshot.png)
+
 > English version available: [README.md](./README.md)
 
 > Este userscript está generado y actualizado con ayuda de IA. No está afiliado a Ollama ni cuenta con su respaldo. Consulta [el aviso completo](#aviso-generado-por-ia) más abajo.
