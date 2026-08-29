@@ -17,6 +17,7 @@ Userscript de Tampermonkey que hace los medidores de uso de [ollama.com/settings
 - **Porcentaje por modelo.** Ollama solo reporta el "X% used" global. La parte de cada modelo existe únicamente en el HTML de la página, codificada como anchos de los segmentos de la barra. El script lee esos anchos, los reescala contra el uso global y muestra cuánto de tu límite total consumió cada modelo. Entre todos suman el X% que reporta Ollama (p. ej. `84.2%` de una sesión al `10.7%` → `9.01%`).
 - **Porcentajes también en la semanal.** Inyecta el mismo porcentaje reescalado en la lista nativa "Models used this week" de Ollama.
 - **Hora exacta de reset.** Añade la fecha y hora absolutas junto al tiempo relativo, p. ej. "Resets in 2 hours. (August 27, 2026 at 2:00 AM)".
+- **Modo oscuro.** Un botón flotante en la esquina inferior derecha (pásale el cursor y verás que es de este script) cambia cualquier página de ollama.com a un tema oscuro ajustado a la paleta del propio sitio, de los filtros de búsqueda y etiquetas de modelos a los campos de formulario (ollama.com es solo claro). Viene desactivado hasta que lo activas, así que no cambia nada para quien solo quiere los medidores; tu elección se recuerda entre páginas y visitas.
 - Sobrevive a las actualizaciones de htmx y a la navegación SPA, y se limpia al salir de la página de ajustes.
 
 ## Instalación
@@ -32,7 +33,8 @@ Abre el panel de Tampermonkey, crea un script nuevo, pega el contenido de [`olla
 ## Notas
 
 - Los porcentajes se leen del HTML de Ollama (anchos de los segmentos de la barra), no de una API privada. Si Ollama cambia su estructura, puede hacer falta actualizar el script.
-- Solo se ejecuta en `https://ollama.com/settings` (URL exacta, no en `/settings/keys`, `/settings/billing` ni `/settings/profile`) y no requiere permisos especiales (`@grant none`).
+- Las funciones de uso solo aparecen en `https://ollama.com/settings` (URL exacta, no en `/settings/keys`, `/settings/billing` ni `/settings/profile`); el botón del tema funciona en todo ollama.com. Sin permisos especiales (`@grant none`).
+- El tema oscuro es opt-in: apagado hasta que lo activas con el botón, y se recuerda en localStorage entre páginas y sesiones del navegador.
 
 ## Seguridad
 
@@ -40,7 +42,7 @@ Este script corre en tu navegador, así que no tienes que confiar en él a ciega
 
 - Un solo archivo legible: [`ollama-usage-breakdown.user.js`](./ollama-usage-breakdown.user.js) — sin build, sin ofuscación, sin dependencias.
 - Sin APIs privilegiadas de userscript (`@grant none`): sin peticiones cross-origin, sin acceso a otras pestañas, al portapapeles o al almacenamiento de Tampermonkey. Todo lo que muestra se parsea del DOM de la propia página.
-- Solo se ejecuta en `https://ollama.com/settings` (URL exacta) y solo lee lo que esa página ya te muestra.
+- Solo se ejecuta en `https://ollama.com/*` y solo lee lo que esas páginas ya te muestran.
 - Cada push y cada pull request se escanean automáticamente con [CodeQL](https://github.com/srnoob2570/ollama-usage-breakdown/security/code-scanning), las queries de seguridad de GitHub.
 
 Las badges de arriba no prueban la ausencia de malware — ninguna badge puede. Lee el script antes de instalarlo y revisa el diff que Tampermonkey muestra en cada actualización.
